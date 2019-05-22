@@ -15,7 +15,7 @@ class FFCache {
 
   String _name;
   String _basePath;
-  Duration timeoutInterval = Duration(days: 1);
+  Duration expiresAfter = Duration(days: 1);
 
   Future<void> _initCacheDirectory() async {
     final tempDir = await getTemporaryDirectory();
@@ -29,14 +29,10 @@ class FFCache {
         .listen((FileSystemEntity entity) {
       final fstat = entity.statSync();
       final diff = now.difference(fstat.modified);
-      if (diff.compareTo(timeoutInterval) > 0) {
-        print('remove old cache: ${entity.path}');
+      if (diff.compareTo(expiresAfter) > 0) {
         entity.deleteSync(recursive: false);
       }
-      print('diff = $diff');
     });
-
-    print('end of initCacheDirectory');
   }
 
   Future<String> _pathForKey(String key) async {
@@ -88,33 +84,3 @@ class FFCache {
     await Directory(_basePath).create(recursive: true);
   }
 }
-
-/*
-void testFFCache() async {
-  print('### testFFCache ###');
-  final cache = FFCache.globalCache();
-
-  await cache.setString('hello', 'world');
-  // await cache.setString('world', 'world');
-  // await cache.setString('hahaha', 'world');
-
-  final val = await cache.getString('hello');
-
-  print('val = $val');
-  final uval = await cache.getString('worl');
-  print('val = $uval');
-
-  final bVal1 = await cache.hasCacheForKey('hello');
-  print('bool = $bVal1');
-  final bVal2 = await cache.hasCacheForKey('unknown');
-  print('bool = $bVal2');
-
-  final bVal3 = await cache.remove('unknown');
-  print('remove1 = $bVal3');
-
-  final bVal4 = await cache.remove('hahaha');
-  print('remove2 = $bVal4');
-
-  print('### testFFCache ///');
-}
-*/
