@@ -47,7 +47,7 @@ class MyHomePage extends StatelessWidget {
   }
 
   void _testFFCache() async {
-    final cache = FFCache();
+    final cache = FFCache(debug: true);
 
     await cache.clear();
 

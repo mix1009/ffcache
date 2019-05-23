@@ -8,32 +8,43 @@ import 'package:path_provider/path_provider.dart';
 const _default_name = 'ffcache';
 const _ffcache_filename = '_ffcache.json';
 const _save_map_after = Duration(seconds: 1);
+const _defaultTimeoutDuration = Duration(days: 1);
 
 Map<String, FFCache> _ffcaches = {};
 
 class FFCache {
-  factory FFCache({String name}) {
-    if (name == null) {
-      name = _default_name;
-    }
+  factory FFCache({String name, Duration defaultTimeout, bool debug}) {
+    name = name ?? _default_name;
     final cache = _ffcaches[name];
     if (cache != null) {
+      if (debug != null) {
+        cache._debug = debug;
+      }
+      if (defaultTimeout != null) {
+        cache._defaultTimeout = defaultTimeout;
+      }
       return cache;
     } else {
-      final newCache = FFCache._constructor(name);
+      debug = debug ?? false;
+      defaultTimeout = defaultTimeout ?? _defaultTimeoutDuration;
+      final newCache =
+          FFCache._(name: name, debug: debug, defaultTimeout: defaultTimeout);
       _ffcaches[name] = newCache;
       return newCache;
     }
   }
 
-  FFCache._constructor(String name) {
+  FFCache._({String name, bool debug, Duration defaultTimeout}) {
     _name = name;
+    _debug = debug;
+    _defaultTimeout = defaultTimeout;
   }
 
   String _name;
+  bool _debug;
+  Duration _defaultTimeout;
   String _basePath;
   Map<String, int> _timeoutMap = {};
-  Duration defaultTimeout = Duration(days: 1);
   Timer saveTimer;
 
   Future<void> init() async {
@@ -59,15 +70,18 @@ class FFCache {
           Directory(_basePath).listSync(recursive: false, followLinks: false);
       for (final entity in files) {
         final filename = entity.path.split('/').last;
-        print(filename);
         if (filename == _ffcache_filename) {
           continue;
         }
         if (remainingDurationForKey(filename).isNegative) {
-          print('  delete $filename');
+          if (_debug) {
+            print('  $filename : delete');
+          }
           entity.deleteSync(recursive: false);
         } else {
-          print('  file ok $filename');
+          if (_debug) {
+            print('  $filename : cache ok');
+          }
         }
       }
     } catch (_) {}
@@ -78,11 +92,14 @@ class FFCache {
       await init();
     }
     key = key.replaceAll('/', '-');
+    if (key == _ffcache_filename) {
+      throw Exception('ffcache: key reserved for $_ffcache_filename');
+    }
     return '$_basePath/$key';
   }
 
   Future<void> setString(String key, String value) async {
-    await setStringWithTimeout(key, value, defaultTimeout);
+    await setStringWithTimeout(key, value, _defaultTimeout);
   }
 
   Future<String> getString(String key) async {
@@ -120,9 +137,14 @@ class FFCache {
     }
 
     saveTimer = Timer(_save_map_after, () async {
-      print('saving ffcache.json');
+      if (_basePath == null) {
+        await init();
+      }
+      if (_debug) {
+        print('saving ffcache.json');
+      }
       String value = json.encode(_timeoutMap);
-      await File(await _pathForKey(_ffcache_filename)).writeAsString(value);
+      await File('$_basePath/$_ffcache_filename').writeAsString(value);
       saveTimer = null;
     });
   }
@@ -151,7 +173,7 @@ class FFCache {
   }
 
   Future<void> setJSON(String key, dynamic data) async {
-    await setJSONWithTimeout(key, data, defaultTimeout);
+    await setJSONWithTimeout(key, data, _defaultTimeout);
   }
 
   Future<void> setJSONWithTimeout(
@@ -176,7 +198,7 @@ class FFCache {
   }
 
   Future<void> setBytes(String key, List<int> bytes) async {
-    await setBytesWithTimeout(key, bytes, defaultTimeout);
+    await setBytesWithTimeout(key, bytes, _defaultTimeout);
   }
 
   Future<void> setBytesWithTimeout(
