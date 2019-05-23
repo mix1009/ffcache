@@ -136,6 +136,20 @@ class FFCache {
         milliseconds: expireDate - DateTime.now().millisecondsSinceEpoch);
   }
 
+  Future<Duration> ageForKey(String key) async {
+    if (remainingDurationForKey(key).isNegative) {
+      return null;
+    }
+    final filepath = await _pathForKey(key);
+    final file = File(filepath);
+    if (file.existsSync()) {
+      final modified = await file.lastModified();
+      return DateTime.now().difference(modified);
+    } else {
+      return null;
+    }
+  }
+
   Future<void> setJSON(String key, dynamic data) async {
     await setJSONWithTimeout(key, data, defaultTimeout);
   }

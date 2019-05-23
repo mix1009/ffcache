@@ -42,6 +42,8 @@ class MyHomePage extends StatelessWidget {
     print(cache.remainingDurationForKey('key1'));
     print(cache.remainingDurationForKey('key2'));
     print(cache.remainingDurationForKey('key3'));
+
+    print(await cache.ageForKey('key1'));
   }
 
   void _testFFCache() async {
