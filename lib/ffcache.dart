@@ -7,6 +7,7 @@ import 'package:path_provider/path_provider.dart';
 
 const _default_directory = 'ffcache';
 const _ffcache_filename = '_ffcache.json';
+const _save_map_after = Duration(seconds: 1);
 
 Map<String, FFCache> _ffcaches = {};
 
@@ -34,6 +35,7 @@ class FFCache {
   String _basePath;
   Map<String, int> _timeoutMap = {};
   Duration defaultTimeout = Duration(days: 1);
+  Timer saveTimer;
 
   Future<void> init() async {
     if (_basePath != null) return;
@@ -114,9 +116,16 @@ class FFCache {
   }
 
   Future<void> _saveMap() async {
-    // TODO need better way to save.
-    String value = json.encode(_timeoutMap);
-    await File(await _pathForKey(_ffcache_filename)).writeAsString(value);
+    if (saveTimer != null) {
+      saveTimer.cancel();
+    }
+
+    saveTimer = Timer(_save_map_after, () async {
+      print('saving ffcache.json');
+      String value = json.encode(_timeoutMap);
+      await File(await _pathForKey(_ffcache_filename)).writeAsString(value);
+      saveTimer = null;
+    });
   }
 
   Duration ageForKey(String key) {
