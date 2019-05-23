@@ -5,18 +5,17 @@ import 'dart:convert';
 import 'dart:io';
 import 'package:path_provider/path_provider.dart';
 
-const _default_directory = 'ffcache';
+const _default_name = 'ffcache';
 const _ffcache_filename = '_ffcache.json';
 const _save_map_after = Duration(seconds: 1);
 
 Map<String, FFCache> _ffcaches = {};
 
 class FFCache {
-  factory FFCache.globalCache() {
-    return FFCache(_default_directory);
-  }
-
-  factory FFCache(String name) {
+  factory FFCache({String name}) {
+    if (name == null) {
+      name = _default_name;
+    }
     final cache = _ffcaches[name];
     if (cache != null) {
       return cache;
@@ -64,7 +63,7 @@ class FFCache {
         if (filename == _ffcache_filename) {
           continue;
         }
-        if (ageForKey(filename).isNegative) {
+        if (remainingDurationForKey(filename).isNegative) {
           print('  delete $filename');
           entity.deleteSync(recursive: false);
         } else {
@@ -87,7 +86,7 @@ class FFCache {
   }
 
   Future<String> getString(String key) async {
-    final timeout = ageForKey(key);
+    final timeout = remainingDurationForKey(key);
     if (timeout.isNegative) {
       return null;
     }
@@ -128,7 +127,7 @@ class FFCache {
     });
   }
 
-  Duration ageForKey(String key) {
+  Duration remainingDurationForKey(String key) {
     final expireDate = _timeoutMap[key];
     if (expireDate == null) {
       return Duration(milliseconds: -1);
@@ -149,7 +148,7 @@ class FFCache {
   }
 
   Future<dynamic> getJSON(String key) async {
-    final timeout = ageForKey(key);
+    final timeout = remainingDurationForKey(key);
     if (timeout.isNegative) {
       return null;
     }
@@ -173,7 +172,7 @@ class FFCache {
   }
 
   Future<List<int>> getBytes(String key) async {
-    final timeout = ageForKey(key);
+    final timeout = remainingDurationForKey(key);
     if (timeout.isNegative) {
       return null;
     }
@@ -188,6 +187,9 @@ class FFCache {
   }
 
   Future<bool> remove(String key) async {
+    if (_basePath == null) {
+      await init();
+    }
     _timeoutMap.remove(key);
     await _saveMap();
 
@@ -202,7 +204,11 @@ class FFCache {
   }
 
   Future<bool> has(String key) async {
-    if (ageForKey(key).isNegative) {
+    if (_basePath == null) {
+      await init();
+    }
+
+    if (remainingDurationForKey(key).isNegative) {
       return false;
     }
 

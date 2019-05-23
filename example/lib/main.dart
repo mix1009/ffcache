@@ -26,18 +26,26 @@ class MyHomePage extends StatelessWidget {
   final String title;
 
   void _testFFCacheSaved() async {
-    final cache = FFCache.globalCache();
+    final cache = FFCache(name: 'test');
     await cache.init();
 
-    // await cache.init();
-    // await cache.setString('key4', 'test');
-    print(cache.ageForKey('key1'));
-    print(cache.ageForKey('key3'));
-    print(cache.ageForKey('key4'));
+    if (!await cache.has('key1')) {
+      await cache.setString('key1', 'test');
+    }
+    if (!await cache.has('key2')) {
+      await cache.setStringWithTimeout('key2', 'test', Duration(seconds: 60));
+    }
+    if (!await cache.has('key3')) {
+      await cache.setStringWithTimeout('key3', 'test', Duration(hours: 10));
+    }
+
+    print(cache.remainingDurationForKey('key1'));
+    print(cache.remainingDurationForKey('key2'));
+    print(cache.remainingDurationForKey('key3'));
   }
 
   void _testFFCache() async {
-    final cache = FFCache.globalCache();
+    final cache = FFCache();
 
     await cache.clear();
 
@@ -84,16 +92,16 @@ class MyHomePage extends StatelessWidget {
           'key', 'value', Duration(milliseconds: 500));
       await cache.setStringWithTimeout('key2', 'value', Duration(seconds: 500));
 
-      final dur = cache.ageForKey('key');
+      final dur = cache.remainingDurationForKey('key');
       print(dur);
 
       sleep(Duration(milliseconds: 600));
 
-      assert(cache.ageForKey('key').isNegative);
+      assert(cache.remainingDurationForKey('key').isNegative);
 
       assert(await cache.getString('key') == null);
 
-      print(cache.ageForKey('key2'));
+      print(cache.remainingDurationForKey('key2'));
     }
 
     print("if you didn't see assert errors, everything went ok.");

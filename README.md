@@ -2,28 +2,36 @@
 
 [![pub package](https://img.shields.io/pub/v/ffcache.svg)](https://pub.dartlang.org/packages/ffcache)
 
-Flutter File Cache is a file based key value store.
+Flutter File Cache is a file based key value store. If stores cache in iOS/Android app's temporary folder. Cache automatically expires after expiration time.
 
 ## API
 
 ### Constructors
 
-`FFCache.globalCache()` uses '$tempdir/ffcache' directory for cache.
+`FFCache()` uses '$tempdir/ffcache' directory for cache.
 
-`FFCache(name)` uses '$tempdir/$name' directory for cache.
+`FFCache({String name})` uses '$tempdir/$name' directory for cache.
 
 
 ### Methods
 
-`Future<void> setString(String key, String value)` stores (key, string) pair.
+`Future<void> init()` Initialize cache.  Most methods calls init() internally if it's not initialized.
+
+`Future<void> setString(String key, String value)` stores (key, string) pair. cache expires after FFCache.defaultTimeout (1 day).
+
+`Future<void> setStringWithTimeout(String key, String value, Duration timeout)` stores (key, string) pair. cache expires after timeout.
 
 `Future<String> getString(String key)` retrieves string value for key.
 
-`Future<void> setBytes(String key, List<int> value)` stores (key, bytes) pair.
+`Future<void> setBytes(String key, List<int> value)` stores (key, bytes) pair with default timeout.
+
+`Future<void> setBytesWithTimeout(String key, List<int> value, Duration timeout)` stores (key, bytes) pair with timeout.
 
 `Future<List<int>> getBytes(String key)` retrieves bytes for key.
 
-`Future<void> setJSON(String key, dynamic value)` stores (key, json) pair.
+`Future<void> setJSON(String key, dynamic value)` stores (key, json) pair with default timeout.
+
+`Future<void> setJSONWithTimeout(String key, dynamic value, Duration timeout)` stores (key, json) pair with timeout.
 
 `Future<dynamic> getJSON(String key)` retrieves json for key.
 
@@ -41,7 +49,10 @@ Most methods are asynchronous. So you should use await from an async function.
 ```
 void testFFCache() async {
 
-  final cache = FFCache.globalCache();
+  final cache = FFCache();
+
+  // initialize. most methods call init() internally if not initialized.
+  cache.init();
 
   // insert 'key':'value' pair
   await cache.setString('key', 'value');
@@ -55,6 +66,9 @@ void testFFCache() async {
     // remove cache for 'key'
     await cache.remove('key');
   }
+
+  // cache expires after Duration.
+  await cache.setStringWithTimeout('key', 'value', Duration(hours: 3));
 
   // remove all cache
   await cache.clear();

@@ -6,7 +6,9 @@ import 'package:ffcache/ffcache.dart';
 
 void main() {
   test('FFCache test', () async {
-    final cache = FFCache.globalCache();
+    final cache = FFCache();
+
+    await cache.init();
 
     await cache.clear();
 
