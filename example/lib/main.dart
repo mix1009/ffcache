@@ -1,4 +1,5 @@
 import 'dart:convert';
+import 'dart:io';
 
 import 'package:collection/collection.dart';
 import 'package:flutter/material.dart';
@@ -23,6 +24,17 @@ class MyHomePage extends StatelessWidget {
   MyHomePage({Key key, this.title}) : super(key: key);
 
   final String title;
+
+  void _testFFCacheSaved() async {
+    final cache = FFCache.globalCache();
+    await cache.init();
+
+    // await cache.init();
+    // await cache.setString('key4', 'test');
+    print(cache.ageForKey('key1'));
+    print(cache.ageForKey('key3'));
+    print(cache.ageForKey('key4'));
+  }
 
   void _testFFCache() async {
     final cache = FFCache.globalCache();
@@ -64,9 +76,24 @@ class MyHomePage extends StatelessWidget {
       await cache.setJSON('json', jsonData);
 
       final rJsonData = await cache.getJSON('json');
-      // print(jsonData);
-      // print(rJsonData);
       assert(jsonData.toString().compareTo(rJsonData.toString()) == 0);
+    }
+
+    {
+      await cache.setStringWithTimeout(
+          'key', 'value', Duration(milliseconds: 500));
+      await cache.setStringWithTimeout('key2', 'value', Duration(seconds: 500));
+
+      final dur = cache.ageForKey('key');
+      print(dur);
+
+      sleep(Duration(milliseconds: 600));
+
+      assert(cache.ageForKey('key').isNegative);
+
+      assert(await cache.getString('key') == null);
+
+      print(cache.ageForKey('key2'));
     }
 
     print("if you didn't see assert errors, everything went ok.");
