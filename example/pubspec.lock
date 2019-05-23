@@ -39,7 +39,7 @@ packages:
   ffcache:
     dependency: "direct main"
     description:
-      path: ".."
+      path: "../ffcache"
       relative: true
     source: path
     version: "0.1.0"
