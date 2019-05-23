@@ -37,18 +37,6 @@ class FFCache {
         }
       }
     } catch (_) {}
-
-    // try {
-    //   Directory(_basePath)
-    //       .list(recursive: false, followLinks: false)
-    //       .listen((FileSystemEntity entity) {
-    //     final fstat = entity.statSync();
-    //     final diff = now.difference(fstat.modified);
-    //     if (diff.compareTo(expiresAfter) > 0) {
-    //       entity.deleteSync(recursive: false);
-    //     }
-    //   });
-    // } catch (_) {}
   }
 
   Future<String> _pathForKey(String key) async {
