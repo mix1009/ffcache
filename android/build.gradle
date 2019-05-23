@@ -1,0 +1,6 @@
+android {
+    // lines skipped
+    dependencies {
+        provided rootProject.findProject(":path_provider")
+    }
+}
