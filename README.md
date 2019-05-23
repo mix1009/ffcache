@@ -2,28 +2,39 @@
 
 [![pub package](https://img.shields.io/pub/v/ffcache.svg)](https://pub.dartlang.org/packages/ffcache)
 
-Flutter File Cache is a file based simple key value store.
+Flutter File Cache is a file based key value store.
+
+## API
+
+### Constructors
+
+`FFCache.globalCache()` uses '$tempdir/ffcache' directory for cache.
+
+`FFCache(name)` uses '$tempdir/$name' directory for cache.
 
 
+### Methods
+
+`Future<void> setString(String key, String value)` stores (key, string) pair.
+
+`Future<String> getString(String key)` retrieves string value for key.
+
+`Future<void> setBytes(String key, List<int> value)` stores (key, bytes) pair.
+
+`Future<List<int>> getBytes(String key)` retrieves bytes for key.
+
+`Future<void> setJSON(String key, dynamic value)` stores (key, json) pair.
+
+`Future<dynamic> getJSON(String key)` retrieves json for key.
+
+`Future<bool> has(key)` checks for existence of key.
+
+`Future<bool> remove(key)` removes key from cache. returns true if key existed and removed.
+
+`Future<void> clear()` removes all pairs from cache.
 
 
 ## Usage
-
-
-```
-    final cache = FFCache.globalCache();
-
-```
-`setString(key, value)` stores key value string pair.
-
-`getString(key)` retrieves value for key.
-
-`hasCacheForKey(key)` checks for existence of key.
-
-`remove(key)` removes key from the cache.
-
-`clear()` removes all pairs from the cache.
-
 
 Most methods are asynchronous. So you should use await from an async function.
 
@@ -39,7 +50,7 @@ void testFFCache() async {
   final value = await cache.getString('key');
 
   // check if 'key' exists
-  if (await cache.hasCacheForKey('key')) {
+  if (await cache.has('key')) {
 
     // remove cache for 'key'
     await cache.remove('key');
@@ -48,25 +59,32 @@ void testFFCache() async {
   // remove all cache
   await cache.clear();
 
-}
+  // setBytes & getBytes
+  {
+    final str = 'string data';
+    List<int> bytes = utf8.encode(str);
 
+    await cache.setBytes('bytes', bytes);
+    final rBytes = await cache.getBytes('bytes');
+  }
+
+  // setJSON & getJSON
+  {
+    final jsonData = json.decode('''[{"id":1,"data":"string data","nested":{"id":"hello","flutter":"rocks"}}]''');
+    await cache.setJSON('json', jsonData);
+
+    final rJsonData = await cache.getJSON('json');
+  }
+}
 ```
 
+
+
+
 ## How it works
-Cached files are stored in the temporary directory of the app. It uses path_provider's TemporaryDirectory
-Temporary directory can be deleted by the OS. So, FFCache is not fit for general purpose key value store.
+Cache files are stored in the temporary directory of the app. It uses path_provider's getTemporaryDirectory(). Files in temporary directory can be deleted by the OS at any time. So, FFCache is not for general purpose key value store.
+
 Old cache entries are deleted when FFCache is initialized. By default, cache expires after 1 day.
 
 
-
-## Getting Started
-
-This project is a starting point for a Dart
-[package](https://flutter.dev/developing-packages/),
-a library module containing code that can be shared easily across
-multiple Flutter or Dart projects.
-
-For help getting started with Flutter, view our
-[online documentation](https://flutter.dev/docs), which offers tutorials,
-samples, guidance on mobile development, and a full API reference.
 
