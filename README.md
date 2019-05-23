@@ -15,7 +15,7 @@ Flutter File Cache is a file based key value store. If stores cache in iOS/Andro
 
 ### Methods
 
-`Future<void> init()` Initialize cache.  Most methods calls init() internally if it's not initialized.
+`Future<void> init()` Initialize cache.  Most methods call init() internally if it's not initialized.
 
 `Future<void> setString(String key, String value)` stores (key, string) pair. cache expires after FFCache.defaultTimeout (1 day).
 
@@ -52,7 +52,7 @@ void testFFCache() async {
   final cache = FFCache();
 
   // initialize. most methods call init() internally if not initialized.
-  cache.init();
+  await cache.init();
 
   // insert 'key':'value' pair
   await cache.setString('key', 'value');
