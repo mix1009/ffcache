@@ -2,7 +2,7 @@
 
 [![pub package](https://img.shields.io/pub/v/ffcache.svg)](https://pub.dartlang.org/packages/ffcache)
 
-Flutter File Cache is a file based key value store. If stores cache in iOS/Android app's temporary folder. Cache automatically expires after expiration time.
+ffcache(Flutter File Cache) is a file based key value store. If stores cache in iOS/Android app's temporary folder. Cache automatically expires after expiration time.
 
 ## API
 
