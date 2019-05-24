@@ -13,6 +13,13 @@ const _defaultTimeoutDuration = Duration(days: 1);
 Map<String, FFCache> _ffcaches = {};
 
 class FFCache {
+  /// Returns a FFCache object.
+  ///
+  /// FFCache objects are created and managed internally. FFCache objects are creates only once for each [name].
+  ///
+  /// Cache files are stored in temporary_directory/[name] (default: ffcache).
+  /// Cache entries expires after [defaultTimeout] (default: 1 day).
+  /// ffcache uses _ffcache.json to store internal information. If you try to use '_ffcache.json' as key, it will through an Exception.
   factory FFCache({String name, Duration defaultTimeout, bool debug}) {
     name = name ?? _default_name;
     final cache = _ffcaches[name];
@@ -21,7 +28,7 @@ class FFCache {
         cache._debug = debug;
       }
       if (defaultTimeout != null) {
-        cache._defaultTimeout = defaultTimeout;
+        cache.defaultTimeout = defaultTimeout;
       }
       return cache;
     } else {
@@ -37,16 +44,19 @@ class FFCache {
   FFCache._({String name, bool debug, Duration defaultTimeout}) {
     _name = name;
     _debug = debug;
-    _defaultTimeout = defaultTimeout;
+    this.defaultTimeout = defaultTimeout;
   }
 
   String _name;
   bool _debug;
-  Duration _defaultTimeout;
+  Duration defaultTimeout;
   String _basePath;
   Map<String, int> _timeoutMap = {};
-  Timer saveTimer;
+  Timer _saveTimer;
 
+  /// Initialize ffcache.
+  ///
+  /// This method is called internally from set/get/remove methods if init() was not called.
   Future<void> init() async {
     if (_basePath != null) return;
 
@@ -98,10 +108,14 @@ class FFCache {
     return '$_basePath/$key';
   }
 
+  /// store (key, stringValue) pair. cache expires after defaultTimeout.
   Future<void> setString(String key, String value) async {
-    await setStringWithTimeout(key, value, _defaultTimeout);
+    await setStringWithTimeout(key, value, defaultTimeout);
   }
 
+  /// get string value for key.
+  ///
+  /// if cache entry is expired or not found, returns null.
   Future<String> getString(String key) async {
     final timeout = remainingDurationForKey(key);
     if (timeout.isNegative) {
@@ -116,6 +130,7 @@ class FFCache {
     }
   }
 
+  /// store (key, stringValue) pair. cache expires after timeout.
   Future<void> setStringWithTimeout(
       String key, String value, Duration timeout) async {
     await File(await _pathForKey(key)).writeAsString(value);
@@ -132,23 +147,26 @@ class FFCache {
   }
 
   Future<void> _saveMap() async {
-    if (saveTimer != null) {
-      saveTimer.cancel();
+    if (_saveTimer != null) {
+      _saveTimer.cancel();
     }
 
-    saveTimer = Timer(_save_map_after, () async {
+    _saveTimer = Timer(_save_map_after, () async {
       if (_basePath == null) {
         await init();
       }
-      if (_debug) {
-        print('saving ffcache.json');
-      }
       String value = json.encode(_timeoutMap);
       await File('$_basePath/$_ffcache_filename').writeAsString(value);
-      saveTimer = null;
+      _saveTimer = null;
+      if (_debug) {
+        print('saved $_ffcache_filename');
+      }
     });
   }
 
+  /// returns cache entry remaining duration for key.
+  ///
+  /// If cache entry is expired or does not exist, returns negative Duration. You can check Duration.isNegative to check if cache does not exist.
   Duration remainingDurationForKey(String key) {
     final expireDate = _timeoutMap[key];
     if (expireDate == null) {
@@ -158,6 +176,9 @@ class FFCache {
         milliseconds: expireDate - DateTime.now().millisecondsSinceEpoch);
   }
 
+  /// returns cache entry age (Duration since creation)
+  ///
+  /// If cache entry does not exist or expired, it returns null.
   Future<Duration> ageForKey(String key) async {
     if (remainingDurationForKey(key).isNegative) {
       return null;
@@ -172,10 +193,16 @@ class FFCache {
     }
   }
 
+  /// store (key, jsonData) pair. cache expires after defaultTimeout.
+  ///
+  /// jsonData is converted to string using json.encode and stored as (JSON) String.
   Future<void> setJSON(String key, dynamic data) async {
-    await setJSONWithTimeout(key, data, _defaultTimeout);
+    await setJSONWithTimeout(key, data, defaultTimeout);
   }
 
+  /// store (key, jsonData) pair. cache expires after timeout.
+  ///
+  /// jsonData is converted to string using json.encode and stored as (JSON) String.
   Future<void> setJSONWithTimeout(
       String key, dynamic data, Duration timeout) async {
     String value = json.encode(data);
@@ -183,6 +210,10 @@ class FFCache {
     await _setTimeout(key, timeout);
   }
 
+  /// get JSON value for key.
+  ///
+  /// stored JSON string is converted to dynamic using json.decode.
+  /// if cache entry is expired or not found, returns null.
   Future<dynamic> getJSON(String key) async {
     final timeout = remainingDurationForKey(key);
     if (timeout.isNegative) {
@@ -197,16 +228,21 @@ class FFCache {
     }
   }
 
+  /// store (key, bytes) pair. cache expires after defaultTimeout.
   Future<void> setBytes(String key, List<int> bytes) async {
-    await setBytesWithTimeout(key, bytes, _defaultTimeout);
+    await setBytesWithTimeout(key, bytes, defaultTimeout);
   }
 
+  /// store (key, bytes) pair. cache expires after timeout.
   Future<void> setBytesWithTimeout(
       String key, List<int> bytes, Duration timeout) async {
     await File(await _pathForKey(key)).writeAsBytes(bytes);
     await _setTimeout(key, timeout);
   }
 
+  /// get bytes(List<int>) for key.
+  ///
+  /// if cache entry is expired or not found, returns null.
   Future<List<int>> getBytes(String key) async {
     final timeout = remainingDurationForKey(key);
     if (timeout.isNegative) {
@@ -222,6 +258,9 @@ class FFCache {
     }
   }
 
+  /// remove cache entry for key
+  ///
+  /// returns true if key existed and was removed. returns false if key did not exists.
   Future<bool> remove(String key) async {
     if (_basePath == null) {
       await init();
@@ -239,6 +278,7 @@ class FFCache {
     }
   }
 
+  /// check if cache entry for key exist.
   Future<bool> has(String key) async {
     if (_basePath == null) {
       await init();
@@ -252,6 +292,7 @@ class FFCache {
         FileSystemEntityType.notFound;
   }
 
+  /// remove all cache entries.
   Future<void> clear() async {
     if (_basePath == null) {
       await init();
