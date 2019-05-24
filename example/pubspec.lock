@@ -39,10 +39,10 @@ packages:
   ffcache:
     dependency: "direct main"
     description:
-      path: "../ffcache"
+      path: ".."
       relative: true
     source: path
-    version: "0.1.1"
+    version: "0.1.2"
   flutter:
     dependency: "direct main"
     description: flutter

@@ -117,6 +117,9 @@ class FFCache {
   ///
   /// if cache entry is expired or not found, returns null.
   Future<String> getString(String key) async {
+    if (_basePath == null) {
+      await init();
+    }
     final timeout = remainingDurationForKey(key);
     if (timeout.isNegative) {
       return null;
@@ -215,6 +218,9 @@ class FFCache {
   /// stored JSON string is converted to dynamic using json.decode.
   /// if cache entry is expired or not found, returns null.
   Future<dynamic> getJSON(String key) async {
+    if (_basePath == null) {
+      await init();
+    }
     final timeout = remainingDurationForKey(key);
     if (timeout.isNegative) {
       return null;
@@ -244,6 +250,9 @@ class FFCache {
   ///
   /// if cache entry is expired or not found, returns null.
   Future<List<int>> getBytes(String key) async {
+    if (_basePath == null) {
+      await init();
+    }
     final timeout = remainingDurationForKey(key);
     if (timeout.isNegative) {
       return null;
