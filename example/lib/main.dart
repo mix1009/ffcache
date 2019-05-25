@@ -11,21 +11,25 @@ class MyApp extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return MaterialApp(
-      title: 'Flutter Demo',
+      title: 'FFCache Demo',
       theme: ThemeData(
         primarySwatch: Colors.blue,
       ),
-      home: MyHomePage(title: 'FFCache Demo'),
+      home: Scaffold(
+          appBar: AppBar(title: Text('FFCache Demo')), body: FFCacheTestPage()),
     );
   }
 }
 
-class MyHomePage extends StatelessWidget {
-  MyHomePage({Key key, this.title}) : super(key: key);
+class FFCacheTestPage extends StatefulWidget {
+  FFCacheTestPage({Key key}) : super(key: key);
 
-  final String title;
+  @override
+  _FFCacheTestPageState createState() => _FFCacheTestPageState();
+}
 
-  void _testFFCacheSaved() async {
+class _FFCacheTestPageState extends State<FFCacheTestPage> {
+  void testFFCacheSaved() async {
     final cache = FFCache(name: 'test');
     await cache.init();
 
@@ -46,7 +50,7 @@ class MyHomePage extends StatelessWidget {
     print(await cache.ageForKey('key1'));
   }
 
-  void _testFFCache() async {
+  void testFFCache() async {
     final cache = FFCache(debug: true);
 
     await cache.clear();
@@ -106,20 +110,94 @@ class MyHomePage extends StatelessWidget {
       print(cache.remainingDurationForKey('key2'));
     }
 
-    print("if you didn't see assert errors, everything went ok.");
+    Scaffold.of(context).showSnackBar(SnackBar(
+      content: Text("testFFCache() passed all asserts. Everything went ok."),
+      backgroundColor: Colors.blue,
+    ));
+  }
+
+  void testFFCacheSync() async {
+    final cache = await FFCacheSync.getInstance(debug: true);
+
+    cache.clear();
+
+    // test setString & getString
+    {
+      final value = 'value';
+      cache.setString('key', value);
+      final retValue = cache.getString('key');
+      assert(retValue == 'value');
+    }
+
+    // getString return null if not found
+    {
+      final retValue = cache.getString('unknownkey');
+      assert(retValue == null);
+    }
+
+    {
+      assert(cache.has('key') == true);
+      assert(cache.remove('key') == true);
+      assert(cache.has('key') == false);
+    }
+
+    {
+      final str = 'string data';
+      List<int> bytes = utf8.encode(str);
+
+      cache.setBytes('bytes', bytes);
+      final rBytes = cache.getBytes('bytes');
+      assert(ListEquality().equals(bytes, rBytes));
+    }
+
+    {
+      final jsonData = json.decode(
+          '''[{"id":1,"data":"string data","nested":{"id":"hello","flutter":"rocks"}}]''');
+      cache.setJSON('json', jsonData);
+
+      final rJsonData = cache.getJSON('json');
+      assert(jsonData.toString().compareTo(rJsonData.toString()) == 0);
+    }
+
+    {
+      cache.setStringWithTimeout('key', 'value', Duration(milliseconds: 500));
+      cache.setStringWithTimeout('key2', 'value', Duration(seconds: 500));
+
+      final dur = cache.remainingDurationForKey('key');
+      print(dur);
+
+      sleep(Duration(milliseconds: 600));
+
+      assert(cache.remainingDurationForKey('key').isNegative);
+
+      assert(cache.getString('key') == null);
+
+      print(cache.remainingDurationForKey('key2'));
+    }
+
+    Scaffold.of(context).showSnackBar(SnackBar(
+      content:
+          Text("testFFCacheSync() passed all asserts. Everything went ok."),
+      backgroundColor: Colors.blue,
+    ));
   }
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      appBar: AppBar(
-        title: Text(title),
+    return Center(
+      child: Column(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: <Widget>[
+          RaisedButton(
+            child: Text("test FFCache"),
+            onPressed: testFFCache,
+          ),
+          RaisedButton(
+            child: Text("test FFCacheSync"),
+            onPressed: testFFCacheSync,
+          ),
+        ],
       ),
-      body: Center(
-          child: RaisedButton(
-        child: Text("press to test"),
-        onPressed: _testFFCache,
-      )),
     );
   }
 }
