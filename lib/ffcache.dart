@@ -15,7 +15,7 @@ Map<String, FFCache> _ffcaches = {};
 class FFCache {
   /// Returns a FFCache object.
   ///
-  /// FFCache objects are created and managed internally. FFCache objects are creates only once for each [name].
+  /// FFCache objects are created and managed internally. FFCache objects are created only once for each [name].
   ///
   /// Cache files are stored in temporary_directory/[name] (default: ffcache).
   /// Cache entries expires after [defaultTimeout] (default: 1 day).
@@ -54,16 +54,22 @@ class FFCache {
   Map<String, int> _timeoutMap = {};
   Timer _saveTimer;
 
+  bool _initialized = false;
+
   /// Initialize ffcache.
   ///
   /// This method is called internally from set/get/remove methods if init() was not called.
   Future<void> init() async {
-    if (_basePath != null) return;
+    if (_initialized) return;
 
     final tempDir = await getTemporaryDirectory();
     _basePath = tempDir.path + '/$_name';
 
-    Directory(_basePath).createSync(recursive: true);
+    await Directory(_basePath).create(recursive: true);
+
+    if (_debug) {
+      print("FFCache path: $_basePath");
+    }
 
     try {
       final data = json
@@ -74,7 +80,8 @@ class FFCache {
       }
     } catch (_) {}
 
-    // final now = DateTime.now();
+    Map<String, int> _newTimeoutMap = {};
+
     try {
       final files =
           Directory(_basePath).listSync(recursive: false, followLinks: false);
@@ -87,18 +94,24 @@ class FFCache {
           if (_debug) {
             print('  $filename : delete');
           }
-          entity.deleteSync(recursive: false);
+          await entity.delete(recursive: false);
         } else {
           if (_debug) {
             print('  $filename : cache ok');
           }
+          _newTimeoutMap[filename] = _timeoutMap[filename];
         }
       }
     } catch (_) {}
+
+    _timeoutMap = _newTimeoutMap;
+    await _saveMap();
+
+    _initialized = true;
   }
 
   Future<String> _pathForKey(String key) async {
-    if (_basePath == null) {
+    if (!_initialized) {
       await init();
     }
     key = key.replaceAll('/', '-');
@@ -117,7 +130,7 @@ class FFCache {
   ///
   /// if cache entry is expired or not found, returns null.
   Future<String> getString(String key) async {
-    if (_basePath == null) {
+    if (!_initialized) {
       await init();
     }
     final timeout = remainingDurationForKey(key);
@@ -126,7 +139,8 @@ class FFCache {
     }
     final filePath = await _pathForKey(key);
 
-    if (FileSystemEntity.typeSync(filePath) != FileSystemEntityType.notFound) {
+    if (await FileSystemEntity.type(filePath) !=
+        FileSystemEntityType.notFound) {
       return File(filePath).readAsString();
     } else {
       return null;
@@ -155,7 +169,7 @@ class FFCache {
     }
 
     _saveTimer = Timer(_save_map_after, () async {
-      if (_basePath == null) {
+      if (!_initialized) {
         await init();
       }
       String value = json.encode(_timeoutMap);
@@ -188,7 +202,7 @@ class FFCache {
     }
     final filepath = await _pathForKey(key);
     final file = File(filepath);
-    if (file.existsSync()) {
+    if (await file.exists()) {
       final modified = await file.lastModified();
       return DateTime.now().difference(modified);
     } else {
@@ -218,7 +232,7 @@ class FFCache {
   /// stored JSON string is converted to dynamic using json.decode.
   /// if cache entry is expired or not found, returns null.
   Future<dynamic> getJSON(String key) async {
-    if (_basePath == null) {
+    if (!_initialized) {
       await init();
     }
     final timeout = remainingDurationForKey(key);
@@ -227,7 +241,8 @@ class FFCache {
     }
     final filePath = await _pathForKey(key);
 
-    if (FileSystemEntity.typeSync(filePath) != FileSystemEntityType.notFound) {
+    if (await FileSystemEntity.type(filePath) !=
+        FileSystemEntityType.notFound) {
       return json.decode(await File(filePath).readAsString());
     } else {
       return null;
@@ -250,7 +265,7 @@ class FFCache {
   ///
   /// if cache entry is expired or not found, returns null.
   Future<List<int>> getBytes(String key) async {
-    if (_basePath == null) {
+    if (!_initialized) {
       await init();
     }
     final timeout = remainingDurationForKey(key);
@@ -260,7 +275,8 @@ class FFCache {
 
     final filePath = await _pathForKey(key);
 
-    if (FileSystemEntity.typeSync(filePath) != FileSystemEntityType.notFound) {
+    if (await FileSystemEntity.type(filePath) !=
+        FileSystemEntityType.notFound) {
       return File(filePath).readAsBytes();
     } else {
       return null;
@@ -271,7 +287,7 @@ class FFCache {
   ///
   /// returns true if key existed and was removed. returns false if key did not exists.
   Future<bool> remove(String key) async {
-    if (_basePath == null) {
+    if (!_initialized) {
       await init();
     }
     _timeoutMap.remove(key);
@@ -279,8 +295,9 @@ class FFCache {
 
     final filePath = await _pathForKey(key);
 
-    if (FileSystemEntity.typeSync(filePath) != FileSystemEntityType.notFound) {
-      File(filePath).deleteSync();
+    if (await FileSystemEntity.type(filePath) !=
+        FileSystemEntityType.notFound) {
+      await File(filePath).delete();
       return true;
     } else {
       return false;
@@ -289,7 +306,7 @@ class FFCache {
 
   /// check if cache entry for key exist.
   Future<bool> has(String key) async {
-    if (_basePath == null) {
+    if (!_initialized) {
       await init();
     }
 
@@ -297,13 +314,13 @@ class FFCache {
       return false;
     }
 
-    return FileSystemEntity.typeSync(await _pathForKey(key)) !=
+    return await FileSystemEntity.type(await _pathForKey(key)) !=
         FileSystemEntityType.notFound;
   }
 
   /// remove all cache entries.
   Future<void> clear() async {
-    if (_basePath == null) {
+    if (!_initialized) {
       await init();
     }
 

@@ -11,21 +11,25 @@ class MyApp extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return MaterialApp(
-      title: 'Flutter Demo',
+      title: 'FFCache Demo',
       theme: ThemeData(
         primarySwatch: Colors.blue,
       ),
-      home: MyHomePage(title: 'FFCache Demo'),
+      home: Scaffold(
+          appBar: AppBar(title: Text('FFCache Demo')), body: FFCacheTestPage()),
     );
   }
 }
 
-class MyHomePage extends StatelessWidget {
-  MyHomePage({Key key, this.title}) : super(key: key);
+class FFCacheTestPage extends StatefulWidget {
+  FFCacheTestPage({Key key}) : super(key: key);
 
-  final String title;
+  @override
+  _FFCacheTestPageState createState() => _FFCacheTestPageState();
+}
 
-  void _testFFCacheSaved() async {
+class _FFCacheTestPageState extends State<FFCacheTestPage> {
+  void testFFCacheSaved() async {
     final cache = FFCache(name: 'test');
     await cache.init();
 
@@ -46,7 +50,7 @@ class MyHomePage extends StatelessWidget {
     print(await cache.ageForKey('key1'));
   }
 
-  void _testFFCache() async {
+  void testFFCache() async {
     final cache = FFCache(debug: true);
 
     await cache.clear();
@@ -90,36 +94,49 @@ class MyHomePage extends StatelessWidget {
     }
 
     {
+      final willExpireKey = 'willexpirekey';
       await cache.setStringWithTimeout(
-          'key', 'value', Duration(milliseconds: 500));
-      await cache.setStringWithTimeout('key2', 'value', Duration(seconds: 500));
+          willExpireKey, 'value', Duration(milliseconds: 100));
 
-      final dur = cache.remainingDurationForKey('key');
-      print(dur);
+      assert(!cache.remainingDurationForKey(willExpireKey).isNegative);
 
-      sleep(Duration(milliseconds: 600));
+      sleep(Duration(milliseconds: 150));
 
-      assert(cache.remainingDurationForKey('key').isNegative);
+      assert(cache.remainingDurationForKey(willExpireKey).isNegative);
 
-      assert(await cache.getString('key') == null);
-
-      print(cache.remainingDurationForKey('key2'));
+      assert(await cache.getString(willExpireKey) == null);
     }
 
-    print("if you didn't see assert errors, everything went ok.");
+    Scaffold.of(context).showSnackBar(SnackBar(
+      content: Text("testFFCache() passed all asserts. Everything went ok."),
+      backgroundColor: Colors.blue,
+    ));
   }
+
+  // void test2() async {
+  //   final cache = FFCache(debug: true);
+  //   await cache.init();
+  //   await cache.setString('test1', 'aaa');
+  //   await cache.setString('test2', 'bbb');
+  //   await cache.setString('test3', 'ccc');
+  // }
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      appBar: AppBar(
-        title: Text(title),
+    return Center(
+      child: Column(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: <Widget>[
+          RaisedButton(
+            child: Text("test FFCache"),
+            onPressed: testFFCache,
+          ),
+          // RaisedButton(
+          //   child: Text("test 2"),
+          //   onPressed: test2,
+          // ),
+        ],
       ),
-      body: Center(
-          child: RaisedButton(
-        child: Text("press to test"),
-        onPressed: _testFFCache,
-      )),
     );
   }
 }
