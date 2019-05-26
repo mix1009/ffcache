@@ -12,3 +12,9 @@
 
 * add example project
 * fix issue when ffcache is not initialized.
+
+## [0.1.3] - 2019/05/26
+
+* fix consistency issue when cache files are deleted externally.
+* use async file methods when possible.
+* update example project & documentation.

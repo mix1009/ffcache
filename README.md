@@ -59,10 +59,8 @@ void testFFCache() async {
 
 Available from https://pub.dev/documentation/ffcache/latest/ffcache/FFCache-class.html
 
+
 ## How it works
 Cache files are stored in the temporary directory of the app. It uses path_provider's getTemporaryDirectory(). Files in temporary directory can be deleted by the OS at any time. So, FFCache is not for general purpose key value store.
 
 Old cache entries are deleted when FFCache is initialized. By default, cache expires after 1 day.
-
-
-
