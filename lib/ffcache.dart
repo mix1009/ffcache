@@ -20,39 +20,32 @@ class FFCache {
   /// Cache files are stored in temporary_directory/[name] (default: ffcache).
   /// Cache entries expires after [defaultTimeout] (default: 1 day).
   /// ffcache uses _ffcache.json to store internal information. If you try to use '_ffcache.json' as key, it will through an Exception.
-  factory FFCache({String name, Duration defaultTimeout, bool debug}) {
-    name = name ?? _default_name;
+  factory FFCache(
+      {String name = _default_name,
+      Duration defaultTimeout = _defaultTimeoutDuration,
+      bool debug = false}) {
     final cache = _ffcaches[name];
     if (cache != null) {
-      if (debug != null) {
-        cache._debug = debug;
-      }
-      if (defaultTimeout != null) {
-        cache.defaultTimeout = defaultTimeout;
-      }
+      cache._debug = debug;
+      cache._defaultTimeout = defaultTimeout;
       return cache;
     } else {
-      debug = debug ?? false;
-      defaultTimeout = defaultTimeout ?? _defaultTimeoutDuration;
-      final newCache =
-          FFCache._(name: name, debug: debug, defaultTimeout: defaultTimeout);
+      final newCache = FFCache._(name, debug, defaultTimeout);
       _ffcaches[name] = newCache;
       return newCache;
     }
   }
 
-  FFCache._({String name, bool debug, Duration defaultTimeout}) {
-    _name = name;
-    _debug = debug;
-    this.defaultTimeout = defaultTimeout;
-  }
+  FFCache._(this._name, this._debug, this._defaultTimeout);
+
+  // _name(name), _debug(debug), _defaultTimeout(defaultTimeout);
 
   String _name;
   bool _debug;
-  Duration defaultTimeout;
-  String _basePath;
+  Duration _defaultTimeout;
+  late String _basePath;
   Map<String, int> _timeoutMap = {};
-  Timer _saveTimer;
+  Timer? _saveTimer;
 
   bool _initialized = false;
 
@@ -99,7 +92,10 @@ class FFCache {
           if (_debug) {
             print('  $filename : cache ok');
           }
-          _newTimeoutMap[filename] = _timeoutMap[filename];
+          final val = _timeoutMap[filename];
+          if (val != null) {
+            _newTimeoutMap[filename] = val;
+          }
         }
       }
     } catch (_) {}
@@ -123,13 +119,13 @@ class FFCache {
 
   /// store (key, stringValue) pair. cache expires after defaultTimeout.
   Future<void> setString(String key, String value) async {
-    await setStringWithTimeout(key, value, defaultTimeout);
+    await setStringWithTimeout(key, value, _defaultTimeout);
   }
 
   /// get string value for key.
   ///
   /// if cache entry is expired or not found, returns null.
-  Future<String> getString(String key) async {
+  Future<String?> getString(String key) async {
     if (!_initialized) {
       await init();
     }
@@ -165,7 +161,7 @@ class FFCache {
 
   Future<void> _saveMap() async {
     if (_saveTimer != null) {
-      _saveTimer.cancel();
+      _saveTimer!.cancel();
     }
 
     _saveTimer = Timer(_save_map_after, () async {
@@ -196,7 +192,7 @@ class FFCache {
   /// returns cache entry age (Duration since creation)
   ///
   /// If cache entry does not exist or expired, it returns null.
-  Future<Duration> ageForKey(String key) async {
+  Future<Duration?> ageForKey(String key) async {
     if (remainingDurationForKey(key).isNegative) {
       return null;
     }
@@ -214,7 +210,7 @@ class FFCache {
   ///
   /// jsonData is converted to string using json.encode and stored as (JSON) String.
   Future<void> setJSON(String key, dynamic data) async {
-    await setJSONWithTimeout(key, data, defaultTimeout);
+    await setJSONWithTimeout(key, data, _defaultTimeout);
   }
 
   /// store (key, jsonData) pair. cache expires after timeout.
@@ -251,7 +247,7 @@ class FFCache {
 
   /// store (key, bytes) pair. cache expires after defaultTimeout.
   Future<void> setBytes(String key, List<int> bytes) async {
-    await setBytesWithTimeout(key, bytes, defaultTimeout);
+    await setBytesWithTimeout(key, bytes, _defaultTimeout);
   }
 
   /// store (key, bytes) pair. cache expires after timeout.
@@ -264,7 +260,7 @@ class FFCache {
   /// get bytes(List<int>) for key.
   ///
   /// if cache entry is expired or not found, returns null.
-  Future<List<int>> getBytes(String key) async {
+  Future<List<int>?> getBytes(String key) async {
     if (!_initialized) {
       await init();
     }

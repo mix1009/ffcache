@@ -22,7 +22,7 @@ class MyApp extends StatelessWidget {
 }
 
 class FFCacheTestPage extends StatefulWidget {
-  FFCacheTestPage({Key key}) : super(key: key);
+  FFCacheTestPage({Key? key}) : super(key: key);
 
   @override
   _FFCacheTestPageState createState() => _FFCacheTestPageState();
