@@ -107,7 +107,7 @@ class _FFCacheTestPageState extends State<FFCacheTestPage> {
       assert(await cache.getString(willExpireKey) == null);
     }
 
-    Scaffold.of(context).showSnackBar(SnackBar(
+    ScaffoldMessenger.of(context).showSnackBar(SnackBar(
       content: Text("testFFCache() passed all asserts. Everything went ok."),
       backgroundColor: Colors.blue,
     ));
@@ -127,7 +127,7 @@ class _FFCacheTestPageState extends State<FFCacheTestPage> {
       child: Column(
         mainAxisAlignment: MainAxisAlignment.center,
         children: <Widget>[
-          RaisedButton(
+          ElevatedButton(
             child: Text("test FFCache"),
             onPressed: testFFCache,
           ),
