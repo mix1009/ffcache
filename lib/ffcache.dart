@@ -51,6 +51,7 @@ class FFCache {
   Timer? _saveTimer;
 
   bool _initialized = false;
+  Database? _db;
 
   /// Initialize ffcache.
   ///
@@ -60,82 +61,115 @@ class FFCache {
     if (kIsWeb) {
       _basePath = _name;
 
-      print("use idb_shim!");
+      if (_debug) {
+        print("FFCache: use idb_shim!");
+      }
       final idbFactory = getIdbFactory();
-      String storeName = _basePath;
       // open the database
-      Database db = await idbFactory!.open("${storeName}.db", version: 1,
+      _db = await idbFactory!.open("${_basePath}.db", version: 1,
           onUpgradeNeeded: (VersionChangeEvent event) {
         Database db = event.database;
         // db.createObjectStore(storeName, autoIncrement: true);
-        db.createObjectStore(storeName);
+        db.createObjectStore(_basePath);
       });
-      var txn = db.transaction(storeName, "readwrite");
-      var store = txn.objectStore(storeName);
-      var key = await store.put("value1", "key1");
-      await txn.completed;
-      print(key);
-      // txn = db.transaction(storeName, "readonly");
-      // store = txn.objectStore(storeName);
-      // final value = await store.getObject(key);
-      // await txn.completed;
-      // print(value);
-      txn = db.transaction(storeName, "readonly");
-      store = txn.objectStore(storeName);
-      final keys = await store.getAllKeys();
-      await txn.completed;
 
-      print(keys);
-      db.close();
-      return;
-    }
-    final tempDir = await getTemporaryDirectory();
-    _basePath = tempDir.path + '/$_name';
+      // load _timeoutMap
+      try {
+        final val = await _readString(_ffcache_filename);
+        if (val != null) {
+          final data = json.decode(val);
 
-    await Directory(_basePath).create(recursive: true);
-
-    if (_debug) {
-      print("FFCache path: $_basePath");
-    }
-
-    try {
-      final data = json
-          .decode(await File('$_basePath/$_ffcache_filename').readAsString());
-
-      for (final k in data.keys) {
-        _timeoutMap[k] = data[k];
-      }
-    } catch (_) {}
-
-    Map<String, int> _newTimeoutMap = {};
-
-    try {
-      final files =
-          Directory(_basePath).listSync(recursive: false, followLinks: false);
-      for (final entity in files) {
-        final filename = entity.path.split('/').last;
-        if (filename == _ffcache_filename) {
-          continue;
-        }
-        if (remainingDurationForKey(filename).isNegative) {
-          if (_debug) {
-            print('  $filename : delete');
-          }
-          await entity.delete(recursive: false);
-        } else {
-          if (_debug) {
-            print('  $filename : cache ok');
-          }
-          final val = _timeoutMap[filename];
-          if (val != null) {
-            _newTimeoutMap[filename] = val;
+          for (final k in data.keys) {
+            _timeoutMap[k] = data[k];
           }
         }
-      }
-    } catch (_) {}
+      } catch (_) {}
 
-    _timeoutMap = _newTimeoutMap;
-    await _saveMap();
+      // delete old entries (not tested)
+      Map<String, int> _newTimeoutMap = {};
+
+      if (_db != null)
+        try {
+          var txn = _db!.transaction(_basePath, idbModeReadOnly);
+          var store = txn.objectStore(_basePath);
+          var keys = await store.getAllKeys();
+          await txn.completed;
+
+          for (final key in keys) {
+            if (key == _ffcache_filename) {
+              continue;
+            }
+            if (remainingDurationForKey(key).isNegative) {
+              if (_debug) {
+                print('  $key : delete');
+              }
+              var txn2 = _db!.transaction(_basePath, idbModeReadWrite);
+              var store2 = txn.objectStore(_basePath);
+              await store2.delete(key);
+              await txn2.completed;
+            } else {
+              if (_debug) {
+                print('  $key : cache ok');
+              }
+              final val = _timeoutMap[filename];
+              if (val != null) {
+                _newTimeoutMap[filename] = val;
+              }
+            }
+          }
+        } catch (_) {}
+
+      _timeoutMap = _newTimeoutMap;
+      await _saveMap();
+    } else {
+      final tempDir = await getTemporaryDirectory();
+      _basePath = tempDir.path + '/$_name';
+
+      await Directory(_basePath).create(recursive: true);
+
+      if (_debug) {
+        print("FFCache path: $_basePath");
+      }
+
+      try {
+        final data = json
+            .decode(await File('$_basePath/$_ffcache_filename').readAsString());
+
+        for (final k in data.keys) {
+          _timeoutMap[k] = data[k];
+        }
+      } catch (_) {}
+
+      Map<String, int> _newTimeoutMap = {};
+
+      try {
+        final files =
+            Directory(_basePath).listSync(recursive: false, followLinks: false);
+        for (final entity in files) {
+          final filename = entity.path.split('/').last;
+          if (filename == _ffcache_filename) {
+            continue;
+          }
+          if (remainingDurationForKey(filename).isNegative) {
+            if (_debug) {
+              print('  $filename : delete');
+            }
+            await entity.delete(recursive: false);
+          } else {
+            if (_debug) {
+              print('  $filename : cache ok');
+            }
+            final val = _timeoutMap[filename];
+            if (val != null) {
+              _newTimeoutMap[filename] = val;
+            }
+          }
+        }
+      } catch (_) {}
+
+      _timeoutMap = _newTimeoutMap;
+      await _saveMap();
+    }
 
     _initialized = true;
   }
@@ -167,21 +201,52 @@ class FFCache {
     if (timeout.isNegative) {
       return null;
     }
-    final filePath = await _pathForKey(key);
-
-    if (await FileSystemEntity.type(filePath) !=
-        FileSystemEntityType.notFound) {
-      return File(filePath).readAsString();
-    } else {
-      return null;
-    }
+    return await _readString(key);
   }
 
   Future<void> _writeString(String key, String value) async {
-    // await _setTimeout(key, Duration(milliseconds: -1));
     if (kIsWeb) {
+      if (_db == null) return;
+      var txn = _db!.transaction(_basePath, idbModeReadWrite);
+      var store = txn.objectStore(_basePath);
+      await store.put([value, DateTime.now()], key);
+      await txn.completed;
     } else {
       await File(await _pathForKey(key)).writeAsString(value);
+    }
+  }
+
+  Future<String?> _readString(String key) async {
+    if (kIsWeb) {
+      if (_db == null) return null;
+      var txn = _db!.transaction(_basePath, idbModeReadOnly);
+      var store = txn.objectStore(_basePath);
+      var obj = await store.getObject(key);
+      await txn.completed;
+      if (obj == null) return null;
+      var vt = obj as List;
+      return vt[0] as String;
+    } else {
+      final filePath = await _pathForKey(key);
+
+      if (await FileSystemEntity.type(filePath) !=
+          FileSystemEntityType.notFound) {
+        return File(filePath).readAsString();
+      } else {
+        return null;
+      }
+    }
+  }
+
+  Future<void> _writeBytes(String key, List<int> bytes) async {
+    if (kIsWeb) {
+      if (_db == null) return;
+      var txn = _db!.transaction(_basePath, idbModeReadWrite);
+      var store = txn.objectStore(_basePath);
+      await store.put([bytes, DateTime.now()], key);
+      await txn.completed;
+    } else {
+      await File(await _pathForKey(key)).writeAsBytes(bytes);
     }
   }
 
@@ -211,7 +276,11 @@ class FFCache {
         await init();
       }
       String value = json.encode(_timeoutMap);
-      await File('$_basePath/$_ffcache_filename').writeAsString(value);
+      if (kIsWeb) {
+        await _writeString(value, _ffcache_filename);
+      } else {
+        await File('$_basePath/$_ffcache_filename').writeAsString(value);
+      }
       _saveTimer = null;
       if (_debug) {
         print('saved $_ffcache_filename');
@@ -238,13 +307,26 @@ class FFCache {
     if (remainingDurationForKey(key).isNegative) {
       return null;
     }
-    final filepath = await _pathForKey(key);
-    final file = File(filepath);
-    if (await file.exists()) {
-      final modified = await file.lastModified();
-      return DateTime.now().difference(modified);
+
+    if (kIsWeb) {
+      // not tested
+      var txn = _db!.transaction(_basePath, idbModeReadOnly);
+      var store = txn.objectStore(_basePath);
+      var obj = await store.getObject(key);
+      await txn.completed;
+      if (obj == null) return null;
+      var value = obj as List;
+
+      return DateTime.now().difference(value[1] as DateTime);
     } else {
-      return null;
+      final filepath = await _pathForKey(key);
+      final file = File(filepath);
+      if (await file.exists()) {
+        final modified = await file.lastModified();
+        return DateTime.now().difference(modified);
+      } else {
+        return null;
+      }
     }
   }
 
@@ -277,11 +359,11 @@ class FFCache {
     if (timeout.isNegative) {
       return null;
     }
-    final filePath = await _pathForKey(key);
 
-    if (await FileSystemEntity.type(filePath) !=
-        FileSystemEntityType.notFound) {
-      return json.decode(await File(filePath).readAsString());
+    final val = await _readString(key);
+
+    if (val != null) {
+      return json.decode(val);
     } else {
       return null;
     }
@@ -295,7 +377,7 @@ class FFCache {
   /// store (key, bytes) pair. cache expires after timeout.
   Future<void> setBytesWithTimeout(
       String key, List<int> bytes, Duration timeout) async {
-    await File(await _pathForKey(key)).writeAsBytes(bytes);
+    await _writeBytes(key, bytes);
     await _setTimeout(key, timeout);
   }
 
@@ -311,13 +393,23 @@ class FFCache {
       return null;
     }
 
-    final filePath = await _pathForKey(key);
+    if (kIsWeb) {
+      if (_db == null) return null;
+      var txn = _db!.transaction(_basePath, idbModeReadOnly);
+      var store = txn.objectStore(_basePath);
+      var value = await store.getObject(key) as List;
+      await txn.completed;
 
-    if (await FileSystemEntity.type(filePath) !=
-        FileSystemEntityType.notFound) {
-      return File(filePath).readAsBytes();
+      return value[0] as List<int>;
     } else {
-      return null;
+      final filePath = await _pathForKey(key);
+
+      if (await FileSystemEntity.type(filePath) !=
+          FileSystemEntityType.notFound) {
+        return File(filePath).readAsBytes();
+      } else {
+        return null;
+      }
     }
   }
 
@@ -331,14 +423,23 @@ class FFCache {
     _timeoutMap.remove(key);
     await _saveMap();
 
-    final filePath = await _pathForKey(key);
-
-    if (await FileSystemEntity.type(filePath) !=
-        FileSystemEntityType.notFound) {
-      await File(filePath).delete();
+    if (kIsWeb) {
+      if (_db == null) return false;
+      var txn = _db!.transaction(_basePath, idbModeReadWrite);
+      var store = txn.objectStore(_basePath);
+      await store.delete(key);
+      await txn.completed;
       return true;
     } else {
-      return false;
+      final filePath = await _pathForKey(key);
+
+      if (await FileSystemEntity.type(filePath) !=
+          FileSystemEntityType.notFound) {
+        await File(filePath).delete();
+        return true;
+      } else {
+        return false;
+      }
     }
   }
 
@@ -352,8 +453,16 @@ class FFCache {
       return false;
     }
 
-    return await FileSystemEntity.type(await _pathForKey(key)) !=
-        FileSystemEntityType.notFound;
+    if (kIsWeb) {
+      final txn = _db?.transaction(_basePath, idbModeReadOnly);
+      final store = txn?.objectStore(_basePath);
+      final value = await store?.getObject(key);
+      await txn?.completed;
+      return value != null;
+    } else {
+      return await FileSystemEntity.type(await _pathForKey(key)) !=
+          FileSystemEntityType.notFound;
+    }
   }
 
   /// remove all cache entries.
@@ -363,14 +472,16 @@ class FFCache {
     }
 
     if (kIsWeb) {
+      if (_db != null) {
+        _db!.close();
+      }
       final idbFactory = getIdbFactory();
-      String storeName = _basePath;
-      // open the database
-      await idbFactory!.deleteDatabase("${storeName}.db");
-      Database db = await idbFactory!.open("${storeName}.db", version: 1,
+
+      await idbFactory!.deleteDatabase("${_basePath}.db");
+      _db = await idbFactory!.open("${_basePath}.db", version: 1,
           onUpgradeNeeded: (VersionChangeEvent event) {
         Database db = event.database;
-        db.createObjectStore(storeName);
+        db.createObjectStore(_basePath);
       });
     } else {
       await Directory(_basePath).delete(recursive: true);

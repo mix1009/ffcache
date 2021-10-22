@@ -1,5 +1,5 @@
+import 'dart:async';
 import 'dart:convert';
-import 'dart:io';
 
 import 'package:collection/collection.dart';
 import 'package:flutter/material.dart';
@@ -100,7 +100,8 @@ class _FFCacheTestPageState extends State<FFCacheTestPage> {
 
       assert(!cache.remainingDurationForKey(willExpireKey).isNegative);
 
-      sleep(Duration(milliseconds: 150));
+      // sleep(Duration(milliseconds: 150)); // doesn't work on web
+      await Future.delayed(const Duration(milliseconds: 150));
 
       assert(cache.remainingDurationForKey(willExpireKey).isNegative);
 
