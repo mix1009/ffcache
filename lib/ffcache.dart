@@ -4,6 +4,9 @@ import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
 import 'package:path_provider/path_provider.dart';
+import 'package:flutter/foundation.dart' show kIsWeb;
+import 'package:idb_shim/idb_browser.dart';
+import 'package:idb_shim/idb_shim.dart';
 
 const _default_name = 'ffcache';
 const _ffcache_filename = '_ffcache.json';
@@ -54,7 +57,38 @@ class FFCache {
   /// This method is called internally from set/get/remove methods if init() was not called.
   Future<void> init() async {
     if (_initialized) return;
+    if (kIsWeb) {
+      _basePath = _name;
 
+      print("use idb_shim!");
+      final idbFactory = getIdbFactory();
+      String storeName = _basePath;
+      // open the database
+      Database db = await idbFactory!.open("${storeName}.db", version: 1,
+          onUpgradeNeeded: (VersionChangeEvent event) {
+        Database db = event.database;
+        // db.createObjectStore(storeName, autoIncrement: true);
+        db.createObjectStore(storeName);
+      });
+      var txn = db.transaction(storeName, "readwrite");
+      var store = txn.objectStore(storeName);
+      var key = await store.put("value1", "key1");
+      await txn.completed;
+      print(key);
+      // txn = db.transaction(storeName, "readonly");
+      // store = txn.objectStore(storeName);
+      // final value = await store.getObject(key);
+      // await txn.completed;
+      // print(value);
+      txn = db.transaction(storeName, "readonly");
+      store = txn.objectStore(storeName);
+      final keys = await store.getAllKeys();
+      await txn.completed;
+
+      print(keys);
+      db.close();
+      return;
+    }
     final tempDir = await getTemporaryDirectory();
     _basePath = tempDir.path + '/$_name';
 
@@ -143,10 +177,18 @@ class FFCache {
     }
   }
 
+  Future<void> _writeString(String key, String value) async {
+    // await _setTimeout(key, Duration(milliseconds: -1));
+    if (kIsWeb) {
+    } else {
+      await File(await _pathForKey(key)).writeAsString(value);
+    }
+  }
+
   /// store (key, stringValue) pair. cache expires after timeout.
   Future<void> setStringWithTimeout(
       String key, String value, Duration timeout) async {
-    await File(await _pathForKey(key)).writeAsString(value);
+    await _writeString(key, value);
     await _setTimeout(key, timeout);
   }
 
@@ -219,7 +261,7 @@ class FFCache {
   Future<void> setJSONWithTimeout(
       String key, dynamic data, Duration timeout) async {
     String value = json.encode(data);
-    await File(await _pathForKey(key)).writeAsString(value);
+    await _writeString(key, value);
     await _setTimeout(key, timeout);
   }
 
@@ -320,8 +362,20 @@ class FFCache {
       await init();
     }
 
-    await Directory(_basePath).delete(recursive: true);
-    await Directory(_basePath).create(recursive: true);
+    if (kIsWeb) {
+      final idbFactory = getIdbFactory();
+      String storeName = _basePath;
+      // open the database
+      await idbFactory!.deleteDatabase("${storeName}.db");
+      Database db = await idbFactory!.open("${storeName}.db", version: 1,
+          onUpgradeNeeded: (VersionChangeEvent event) {
+        Database db = event.database;
+        db.createObjectStore(storeName);
+      });
+    } else {
+      await Directory(_basePath).delete(recursive: true);
+      await Directory(_basePath).create(recursive: true);
+    }
 
     _timeoutMap.clear();
 
