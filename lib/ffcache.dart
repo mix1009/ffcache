@@ -400,8 +400,8 @@ class FFCache {
       var store = txn.objectStore(_basePath);
       var value = await store.getObject(key) as List;
       await txn.completed;
-
-      return value[0] as List<int>;
+      List<dynamic> dynList = value[0];
+      return dynList.cast<int>();
     } else {
       final filePath = await _pathForKey(key);
 
