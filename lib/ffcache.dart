@@ -95,7 +95,8 @@ class FFCache {
           var keys = await store.getAllKeys();
           await txn.completed;
 
-          for (final key in keys) {
+          for (final keyObject in keys) {
+            final key = keyObject as String;
             if (key == _ffcache_filename) {
               continue;
             }
@@ -111,9 +112,9 @@ class FFCache {
               if (_debug) {
                 print('  $key : cache ok');
               }
-              final val = _timeoutMap[filename];
+              final val = _timeoutMap[key];
               if (val != null) {
-                _newTimeoutMap[filename] = val;
+                _newTimeoutMap[key] = val;
               }
             }
           }
@@ -477,8 +478,8 @@ class FFCache {
       }
       final idbFactory = getIdbFactory();
 
-      await idbFactory!.deleteDatabase("${_basePath}.db");
-      _db = await idbFactory!.open("${_basePath}.db", version: 1,
+      await idbFactory!.deleteDatabase("$_basePath.db");
+      _db = await idbFactory.open("$_basePath.db", version: 1,
           onUpgradeNeeded: (VersionChangeEvent event) {
         Database db = event.database;
         db.createObjectStore(_basePath);
