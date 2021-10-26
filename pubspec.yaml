@@ -2,8 +2,7 @@ name: ffcache
 description: ffcache(Flutter File Cache) is a file based key value store. It
   stores cache in iOS/Android app's temporary folder. Cache automatically
   expires after expiration time.
-version: 1.0.0
-author: ChunKoo Park <mix1009@gmail.com>
+version: 1.1.0
 homepage: https://github.com/mix1009/ffcache
 
 environment:

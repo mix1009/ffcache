@@ -1,3 +1,7 @@
+## [1.1.0] - 2021/10/26
+
+* support for web platform
+
 ## [1.0.0] - 2021/03/09
 
 * add null safety.

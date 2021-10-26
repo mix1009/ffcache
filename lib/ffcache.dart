@@ -66,7 +66,7 @@ class FFCache {
       }
       final idbFactory = getIdbFactory();
       // open the database
-      _db = await idbFactory!.open("${_basePath}.db", version: 1,
+      _db = await idbFactory!.open("$_basePath.db", version: 1,
           onUpgradeNeeded: (VersionChangeEvent event) {
         Database db = event.database;
         // db.createObjectStore(storeName, autoIncrement: true);
