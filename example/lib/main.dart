@@ -1,13 +1,15 @@
 import 'dart:async';
 import 'dart:convert';
 
-import 'package:collection/collection.dart';
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:ffcache/ffcache.dart';
 
-void main() => runApp(MyApp());
+void main() => runApp(const MyApp());
 
 class MyApp extends StatelessWidget {
+  const MyApp({super.key});
+
   @override
   Widget build(BuildContext context) {
     return MaterialApp(
@@ -16,16 +18,18 @@ class MyApp extends StatelessWidget {
         primarySwatch: Colors.blue,
       ),
       home: Scaffold(
-          appBar: AppBar(title: Text('FFCache Demo')), body: FFCacheTestPage()),
+        appBar: AppBar(title: const Text('FFCache Demo')),
+        body: const FFCacheTestPage(),
+      ),
     );
   }
 }
 
 class FFCacheTestPage extends StatefulWidget {
-  FFCacheTestPage({Key? key}) : super(key: key);
+  const FFCacheTestPage({super.key});
 
   @override
-  _FFCacheTestPageState createState() => _FFCacheTestPageState();
+  State<FFCacheTestPage> createState() => _FFCacheTestPageState();
 }
 
 class _FFCacheTestPageState extends State<FFCacheTestPage> {
@@ -37,17 +41,18 @@ class _FFCacheTestPageState extends State<FFCacheTestPage> {
       await cache.setString('key1', 'test');
     }
     if (!await cache.has('key2')) {
-      await cache.setStringWithTimeout('key2', 'test', Duration(seconds: 60));
+      await cache.setStringWithTimeout(
+          'key2', 'test', const Duration(seconds: 60));
     }
     if (!await cache.has('key3')) {
-      await cache.setStringWithTimeout('key3', 'test', Duration(hours: 10));
+      await cache.setStringWithTimeout(
+          'key3', 'test', const Duration(hours: 10));
     }
 
-    print(cache.remainingDurationForKey('key1'));
-    print(cache.remainingDurationForKey('key2'));
-    print(cache.remainingDurationForKey('key3'));
-
-    print(await cache.ageForKey('key1'));
+    debugPrint('${cache.remainingDurationForKey('key1')}');
+    debugPrint('${cache.remainingDurationForKey('key2')}');
+    debugPrint('${cache.remainingDurationForKey('key3')}');
+    debugPrint('${await cache.ageForKey('key1')}');
   }
 
   void testFFCache() async {
@@ -57,7 +62,7 @@ class _FFCacheTestPageState extends State<FFCacheTestPage> {
 
     // test setString & getString
     {
-      final value = 'value';
+      const value = 'value';
       await cache.setString('key', value);
       final retValue = await cache.getString('key');
       assert(retValue == 'value');
@@ -77,11 +82,11 @@ class _FFCacheTestPageState extends State<FFCacheTestPage> {
 
     {
       final str = 'string data';
-      List<int> bytes = utf8.encode(str);
+      final bytes = utf8.encode(str);
 
       await cache.setBytes('bytes', bytes);
       final rBytes = await cache.getBytes('bytes');
-      assert(ListEquality().equals(bytes, rBytes));
+      assert(listEquals(bytes, rBytes));
     }
 
     {
@@ -94,33 +99,24 @@ class _FFCacheTestPageState extends State<FFCacheTestPage> {
     }
 
     {
-      final willExpireKey = 'willexpirekey';
+      const willExpireKey = 'willexpirekey';
       await cache.setStringWithTimeout(
-          willExpireKey, 'value', Duration(milliseconds: 100));
+          willExpireKey, 'value', const Duration(milliseconds: 100));
 
       assert(!cache.remainingDurationForKey(willExpireKey).isNegative);
 
-      // sleep(Duration(milliseconds: 150)); // doesn't work on web
       await Future.delayed(const Duration(milliseconds: 150));
 
       assert(cache.remainingDurationForKey(willExpireKey).isNegative);
-
       assert(await cache.getString(willExpireKey) == null);
     }
 
-    ScaffoldMessenger.of(context).showSnackBar(SnackBar(
-      content: Text("testFFCache() passed all asserts. Everything went ok."),
+    if (!mounted) return;
+    ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
+      content: Text('testFFCache() passed all asserts. Everything went ok.'),
       backgroundColor: Colors.blue,
     ));
   }
-
-  // void test2() async {
-  //   final cache = FFCache(debug: true);
-  //   await cache.init();
-  //   await cache.setString('test1', 'aaa');
-  //   await cache.setString('test2', 'bbb');
-  //   await cache.setString('test3', 'ccc');
-  // }
 
   @override
   Widget build(BuildContext context) {
@@ -129,13 +125,9 @@ class _FFCacheTestPageState extends State<FFCacheTestPage> {
         mainAxisAlignment: MainAxisAlignment.center,
         children: <Widget>[
           ElevatedButton(
-            child: Text("test FFCache"),
             onPressed: testFFCache,
+            child: const Text('test FFCache'),
           ),
-          // RaisedButton(
-          //   child: Text("test 2"),
-          //   onPressed: test2,
-          // ),
         ],
       ),
     );

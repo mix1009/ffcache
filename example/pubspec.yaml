@@ -1,11 +1,12 @@
 name: example
-description: A new Flutter project.
+description: Demonstrates how to use the ffcache plugin.
 
 version: 1.0.0+1
 publish_to: none
 
 environment:
-  sdk: '>=2.12.0 <3.0.0'
+  sdk: '>=3.0.0 <4.0.0'
+  flutter: '>=3.10.0'
 
 dependencies:
   flutter:
@@ -14,11 +15,12 @@ dependencies:
   ffcache:
     path: ../
 
-  cupertino_icons: ^0.1.2
+  cupertino_icons: ^1.0.9
 
 dev_dependencies:
   flutter_test:
     sdk: flutter
+  flutter_lints: ^5.0.0
 
 flutter:
   uses-material-design: true

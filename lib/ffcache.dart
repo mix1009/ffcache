@@ -1,19 +1,16 @@
-library ffcache;
-
 import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
 import 'package:path_provider/path_provider.dart';
-import 'package:flutter/foundation.dart' show kIsWeb;
+import 'package:flutter/foundation.dart' show debugPrint, kIsWeb;
 import 'package:idb_shim/idb_browser.dart';
-import 'package:idb_shim/idb_shim.dart';
 
-const _default_name = 'ffcache';
-const _ffcache_filename = '_ffcache.json';
-const _save_map_after = Duration(seconds: 1);
+const _defaultName = 'ffcache';
+const _ffcacheFilename = '_ffcache.json';
+const _saveMapAfter = Duration(seconds: 1);
 const _defaultTimeoutDuration = Duration(days: 1);
 
-Map<String, FFCache> _ffcaches = {};
+final Map<String, FFCache> _ffcaches = {};
 
 class FFCache {
   /// Returns a FFCache object.
@@ -24,7 +21,7 @@ class FFCache {
   /// Cache entries expires after [defaultTimeout] (default: 1 day).
   /// ffcache uses _ffcache.json to store internal information. If you try to use '_ffcache.json' as key, it will through an Exception.
   factory FFCache(
-      {String name = _default_name,
+      {String name = _defaultName,
       Duration defaultTimeout = _defaultTimeoutDuration,
       bool debug = false}) {
     final cache = _ffcaches[name];
@@ -62,7 +59,7 @@ class FFCache {
       _basePath = _name;
 
       if (_debug) {
-        print("FFCache: use idb_shim!");
+        debugPrint("FFCache: use idb_shim!");
       }
       final idbFactory = getIdbFactory();
       // open the database
@@ -75,20 +72,20 @@ class FFCache {
 
       // load _timeoutMap
       try {
-        final val = await _readString(_ffcache_filename);
+        final val = await _readString(_ffcacheFilename);
         if (val != null) {
-          final data = json.decode(val);
+          final data = json.decode(val) as Map;
 
           for (final k in data.keys) {
-            _timeoutMap[k] = data[k];
+            _timeoutMap[k as String] = data[k] as int;
           }
         }
       } catch (_) {}
 
       // delete old entries (not tested)
-      Map<String, int> _newTimeoutMap = {};
+      final newTimeoutMap = <String, int>{};
 
-      if (_db != null)
+      if (_db != null) {
         try {
           var txn = _db!.transaction(_basePath, idbModeReadOnly);
           var store = txn.objectStore(_basePath);
@@ -97,78 +94,79 @@ class FFCache {
 
           for (final keyObject in keys) {
             final key = keyObject as String;
-            if (key == _ffcache_filename) {
+            if (key == _ffcacheFilename) {
               continue;
             }
             if (remainingDurationForKey(key).isNegative) {
               if (_debug) {
-                print('  $key : delete');
+                debugPrint('  $key : delete');
               }
               var txn2 = _db!.transaction(_basePath, idbModeReadWrite);
-              var store2 = txn.objectStore(_basePath);
+              var store2 = txn2.objectStore(_basePath);
               await store2.delete(key);
               await txn2.completed;
             } else {
               if (_debug) {
-                print('  $key : cache ok');
+                debugPrint('  $key : cache ok');
               }
               final val = _timeoutMap[key];
               if (val != null) {
-                _newTimeoutMap[key] = val;
+                newTimeoutMap[key] = val;
               }
             }
           }
         } catch (_) {}
+      }
 
-      _timeoutMap = _newTimeoutMap;
+      _timeoutMap = newTimeoutMap;
       await _saveMap();
     } else {
       final tempDir = await getTemporaryDirectory();
-      _basePath = tempDir.path + '/$_name';
+      _basePath = '${tempDir.path}/$_name';
 
       await Directory(_basePath).create(recursive: true);
 
       if (_debug) {
-        print("FFCache path: $_basePath");
+        debugPrint("FFCache path: $_basePath");
       }
 
       try {
         final data = json
-            .decode(await File('$_basePath/$_ffcache_filename').readAsString());
+            .decode(await File('$_basePath/$_ffcacheFilename').readAsString()) as Map;
 
         for (final k in data.keys) {
-          _timeoutMap[k] = data[k];
+          _timeoutMap[k as String] = data[k] as int;
         }
       } catch (_) {}
 
-      Map<String, int> _newTimeoutMap = {};
+      final newTimeoutMap = <String, int>{};
 
       try {
         final files =
             Directory(_basePath).listSync(recursive: false, followLinks: false);
         for (final entity in files) {
           final filename = entity.path.split('/').last;
-          if (filename == _ffcache_filename) {
+          if (filename == _ffcacheFilename) {
             continue;
           }
           if (remainingDurationForKey(filename).isNegative) {
             if (_debug) {
-              print('  $filename : delete');
+              debugPrint('  $filename : delete');
             }
             await entity.delete(recursive: false);
           } else {
             if (_debug) {
-              print('  $filename : cache ok');
+              debugPrint('  $filename : cache ok');
             }
             final val = _timeoutMap[filename];
             if (val != null) {
-              _newTimeoutMap[filename] = val;
+              newTimeoutMap[filename] = val;
             }
           }
         }
       } catch (_) {}
 
-      _timeoutMap = _newTimeoutMap;
+      _timeoutMap = newTimeoutMap;
       await _saveMap();
     }
 
@@ -180,8 +178,8 @@ class FFCache {
       await init();
     }
     key = key.replaceAll('/', '-');
-    if (key == _ffcache_filename) {
-      throw Exception('ffcache: key reserved for $_ffcache_filename');
+    if (key == _ffcacheFilename) {
+      throw Exception('ffcache: key reserved for $_ffcacheFilename');
     }
     return '$_basePath/$key';
   }
@@ -272,19 +270,19 @@ class FFCache {
       _saveTimer!.cancel();
     }
 
-    _saveTimer = Timer(_save_map_after, () async {
+    _saveTimer = Timer(_saveMapAfter, () async {
       if (!_initialized) {
         await init();
       }
       String value = json.encode(_timeoutMap);
       if (kIsWeb) {
-        await _writeString(value, _ffcache_filename);
+        await _writeString(_ffcacheFilename, value);
       } else {
-        await File('$_basePath/$_ffcache_filename').writeAsString(value);
+        await File('$_basePath/$_ffcacheFilename').writeAsString(value);
       }
       _saveTimer = null;
       if (_debug) {
-        print('saved $_ffcache_filename');
+        debugPrint('saved $_ffcacheFilename');
       }
     });
   }
@@ -382,7 +380,7 @@ class FFCache {
     await _setTimeout(key, timeout);
   }
 
-  /// get bytes(List<int>) for key.
+  /// get bytes (`List<int>`) for key.
   ///
   /// if cache entry is expired or not found, returns null.
   Future<List<int>?> getBytes(String key) async {
